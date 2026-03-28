@@ -573,6 +573,10 @@ func parseCommandLineArguments(from args: [String]) throws -> __CommandLineArgum
       globalTraits.retryCount = retryCount
       hasGlobalTraits = true
     }
+    if let granularity = args.argumentValue(forLabel: "--experimental-global-granularity").flatMap(Int.init) {
+      globalTraits.timeLimitGranularity = GlobalTraitsConfiguration.JSONDuration(seconds: granularity)
+      hasGlobalTraits = true
+    }
 
     if hasGlobalTraits {
       result.globalTraits = globalTraits
@@ -720,6 +724,9 @@ public func configurationForEntryPoint(from args: __CommandLineArguments_v0) thr
     }
     if let maximumTimeLimit = globalTraits.maximumTimeLimit?.resolve() {
       configuration.maximumTestTimeLimit = maximumTimeLimit
+    }
+    if let granularity = globalTraits.timeLimitGranularity?.resolve() {
+      configuration.testTimeLimitGranularity = granularity
     }
     if globalTraits.serialized == true {
       configuration.isParallelizationEnabled = false

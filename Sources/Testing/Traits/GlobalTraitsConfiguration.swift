@@ -25,7 +25,8 @@
 ///     "maximumTimeLimit": { "minutes": 5 },
 ///     "tags": ["ci", "nightly"],
 ///     "serialized": false,
-///     "retryCount": 3
+///     "retryCount": 3,
+///     "timeLimitGranularity": { "seconds": 1 }
 ///   }
 /// }
 /// ```
@@ -91,4 +92,12 @@ public struct GlobalTraitsConfiguration: Sendable, Codable {
   /// if any test records an issue. Maps to
   /// ``Configuration/repetitionPolicy``.
   public var retryCount: Int?
+
+  /// The granularity for time limit rounding.
+  ///
+  /// By default, the testing library rounds time limits to 60-second
+  /// intervals. Setting this to a smaller value (e.g. 1 second) allows
+  /// finer-grained timeout control. Maps to
+  /// ``Configuration/testTimeLimitGranularity``.
+  public var timeLimitGranularity: JSONDuration?
 }
