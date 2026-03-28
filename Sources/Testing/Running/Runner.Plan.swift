@@ -147,6 +147,22 @@ extension Runner.Plan {
     }
   }
 
+  /// Apply a global tag list to every test in the specified graph.
+  ///
+  /// - Parameters:
+  ///   - tagList: The tag list trait to apply globally.
+  ///   - testGraph: The test graph to modify in place.
+  private static func _applyGlobalTags(_ tagList: Tag.List, to testGraph: inout Graph<String, Test?>) {
+    if testGraph.value != nil {
+      testGraph.value?.traits.insert(tagList, at: 0)
+    }
+    testGraph.children = testGraph.children.mapValues { child in
+      var child = child
+      _applyGlobalTags(tagList, to: &child)
+      return child
+    }
+  }
+
   /// Recursively synthesize test instances representing suites for all missing
   /// values in the specified test graph.
   ///
@@ -355,6 +371,13 @@ extension Runner.Plan {
     // needlessly applying non-filtering related traits to tests which might be
     // filtered out.
     _recursivelyApplyTraits(to: &testGraph)
+
+    // Apply globally-configured tags to all tests in the graph. Tags are
+    // additive (unioned with any tags specified on individual tests).
+    if let globalTags = configuration.globalTraitsConfiguration?.tags, !globalTags.isEmpty {
+      let tagList = Tag.List(tags: globalTags.map { Tag(userProvidedStringValue: $0) })
+      _applyGlobalTags(tagList, to: &testGraph)
+    }
 
     // For each test value, determine the appropriate action for it.
     testGraph = await testGraph.mapValues { keyPath, test in

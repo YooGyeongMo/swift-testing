@@ -205,6 +205,22 @@ public struct Configuration: Sendable {
     }
   }
 
+  // MARK: - Global traits
+
+  /// The globally-scoped traits configuration for this test run.
+  ///
+  /// When set, global traits are applied to all tests during plan
+  /// construction. Time limit values are mapped to
+  /// ``defaultTestTimeLimit`` and ``maximumTestTimeLimit``. Tags are
+  /// injected additively into each test's trait list. Serialization
+  /// overrides ``isParallelizationEnabled``.
+  ///
+  /// - Note: This property is typically set by
+  ///   ``configurationForEntryPoint(from:)`` based on a JSON
+  ///   configuration file.
+  @_spi(ForToolsIntegrationOnly)
+  public var globalTraitsConfiguration: GlobalTraitsConfiguration?
+
   // MARK: - Event handling
 
   /// A type describing options to use when delivering events to this

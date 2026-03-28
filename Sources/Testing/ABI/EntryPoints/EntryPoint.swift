@@ -335,6 +335,14 @@ public struct __CommandLineArguments_v0: Sendable {
 
   /// The value of the `--attachments-path` argument.
   public var attachmentsPath: String?
+
+  /// The value of the `"globalTraits"` key in a JSON configuration file.
+  ///
+  /// This property represents globally-scoped traits to apply to all tests,
+  /// typically loaded from a configuration file passed via
+  /// `--configuration-path`.
+  @_spi(ForToolsIntegrationOnly)
+  public var globalTraits: GlobalTraitsConfiguration?
 }
 
 extension __CommandLineArguments_v0: Codable {
@@ -357,6 +365,7 @@ extension __CommandLineArguments_v0: Codable {
     case repetitions
     case repeatUntil
     case attachmentsPath
+    case globalTraits
   }
 }
 
@@ -538,6 +547,38 @@ func parseCommandLineArguments(from args: [String]) throws -> __CommandLineArgum
     result.repeatUntil = repeatUntil
   }
 
+  // Global traits via CLI flags. These are merged into any existing
+  // globalTraits that may have been loaded from a configuration file.
+  do {
+    var globalTraits = result.globalTraits ?? GlobalTraitsConfiguration()
+    var hasGlobalTraits = false
+
+    if let timeout = args.argumentValue(forLabel: "--experimental-global-timeout").flatMap(Int.init) {
+      globalTraits.defaultTimeLimit = GlobalTraitsConfiguration.JSONDuration(seconds: timeout)
+      hasGlobalTraits = true
+    }
+    if let maxTimeout = args.argumentValue(forLabel: "--experimental-global-max-timeout").flatMap(Int.init) {
+      globalTraits.maximumTimeLimit = GlobalTraitsConfiguration.JSONDuration(seconds: maxTimeout)
+      hasGlobalTraits = true
+    }
+    if let tagsValue = args.argumentValue(forLabel: "--experimental-global-tags") {
+      globalTraits.tags = tagsValue.split(separator: ",").map(String.init)
+      hasGlobalTraits = true
+    }
+    if args.contains("--experimental-global-serialized") {
+      globalTraits.serialized = true
+      hasGlobalTraits = true
+    }
+    if let retryCount = args.argumentValue(forLabel: "--experimental-global-retry-count").flatMap(Int.init) {
+      globalTraits.retryCount = retryCount
+      hasGlobalTraits = true
+    }
+
+    if hasGlobalTraits {
+      result.globalTraits = globalTraits
+    }
+  }
+
   return result
 }
 
@@ -669,6 +710,27 @@ public func configurationForEntryPoint(from args: __CommandLineArguments_v0) thr
   // Enable exit test handling via __swiftPMEntryPoint().
   configuration.exitTestHandler = ExitTest.handlerForEntryPoint()
 #endif
+
+  // Global traits
+  if let globalTraits = args.globalTraits {
+    configuration.globalTraitsConfiguration = globalTraits
+
+    if let defaultTimeLimit = globalTraits.defaultTimeLimit?.resolve() {
+      configuration.defaultTestTimeLimit = defaultTimeLimit
+    }
+    if let maximumTimeLimit = globalTraits.maximumTimeLimit?.resolve() {
+      configuration.maximumTestTimeLimit = maximumTimeLimit
+    }
+    if globalTraits.serialized == true {
+      configuration.isParallelizationEnabled = false
+    }
+    if let retryCount = globalTraits.retryCount, retryCount > 0 {
+      configuration.repetitionPolicy = .init(
+        continuationCondition: .whileIssueRecorded,
+        maximumIterationCount: retryCount + 1
+      )
+    }
+  }
 
   // Warning issues (experimental).
   switch args.eventStreamVersionNumber {
